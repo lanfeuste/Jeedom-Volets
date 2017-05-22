@@ -6,6 +6,5 @@
 	"author" : "Halbout Michael",
 	"require" : "2.4",
 	"category" : "automatisation",
-	"hasOwnDeamon" : true,
-	"hasDependency" : true
+	"hasOwnDeamon" : true
 }

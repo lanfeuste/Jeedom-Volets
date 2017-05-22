@@ -1,26 +1,16 @@
 <?php
-
 require_once dirname(__FILE__) . '/../../../../core/php/core.inc.php';
-
 class Volets extends eqLogic {
-
+	private $_position;
 	public static function deamon_info() {
-
 		$return = array();
-
 		$return['log'] = 'Volets';
-
 		$return['launchable'] = 'ok';
-
 		$return['state'] = 'nok';
-
 		foreach(eqLogic::byType('Volets') as $Volet){
-
 			if($Volet->getIsEnable()){
-
 				$listener = listener::byClassAndFunction('Volets', 'pull', array('Volets_id' => $Volet->getId()));
-
-				if (!is_object($listener))
+			if (!is_object($listener))
 
 					return $return;
 
@@ -75,31 +65,18 @@ class Volets extends eqLogic {
 	public static function deamon_stop() {	
 
 		$listener = listener::byClassAndFunction('Volets', 'pull');
-
 		if (is_object($listener))
-
 			$listener->remove();
-
 		$cron = cron::byClassAndFunction('Volets', 'ActionJour');
-
 		if (is_object($cron)) 	
-
 			$cron->remove();
-
 		$cron = cron::byClassAndFunction('Volets', 'ActionNuit');
-
 		if (is_object($cron)) 	
-
 			$cron->remove();
-
 	}
-
 	public static function pull($_option) {
-
 		log::add('Volets', 'debug', 'Objet mis à jour => ' . json_encode($_option));
-
 		$Volet = Volets::byId($_option['Volets_id']);
-
 		if (is_object($Volet) && $Volet->getIsEnable()) {
 
 			$Event = cmd::byId($_option['event_id']);
@@ -329,9 +306,20 @@ class Volets extends eqLogic {
 		return false;			
 
 	}	
-
-	public function SelectAction($Azimuth) {
-
+	public function getSaison() {
+		$isInWindows=$this->getCmd(null,'isInWindows');
+		if(!is_object($isInWindows))
+			return false;
+		if($isInWindows->execCmd()){
+			log::add('Volets','info',$this->getHumanName().' Le plugin est configuré en mode hiver');
+			return 'hiver';
+		}else{
+			log::add('Volets','info',$this->getHumanName().' Le plugin est configuré en mode été');
+			return 'été';
+		}
+		return false;
+	}	
+	public function SelectAction($Azimuth,$saison) {
 		$Action=false;
 
 		$StateCmd=$this->getCmd(null,'state');
@@ -339,62 +327,21 @@ class Volets extends eqLogic {
 		if(!is_object($StateCmd))
 
 			return false;
-
-		$State=$StateCmd->execCmd();
-
-		$isInWindows=$this->getCmd(null,'isInWindows');
-
-		if(!is_object($isInWindows))
-
-			return false;
-
 		if($this->CheckAngle($Azimuth)){
-
-			if(!$State || $State == ""){
-
 				$StateCmd->event(true);
-
 				log::add('Volets','info',$this->getHumanName().' Le soleil est dans la fenêtre');
-
-				if($isInWindows->execCmd()){
-
+				if($saison)
 					$Action='open';
-
-					log::add('Volets','info',$this->getHumanName().' Le plugin est configuré en mode hiver');
-
-				}else{
-
+				else
 					$Action='close';
-
-					log::add('Volets','info',$this->getHumanName().' Le plugin est configuré en mode été');
-
-				}
-
-			}
-
+			
 		}else{
-
-			if($State){
-
 				$StateCmd->event(false);
-
 				log::add('Volets','info',$this->getHumanName().' Le soleil n\'est pas dans la fenêtre');
-
-				if($isInWindows->execCmd()){
-
+				if($saison)
 					$Action='close';
-
-					log::add('Volets','info',$this->getHumanName().' Le plugin est configuré en mode été');
-
-				}else{
-
+				else
 					$Action='open';
-
-					log::add('Volets','info',$this->getHumanName().' Le plugin est configuré en mode hiver');
-
-				}
-
-			}
 
 		}
 
@@ -413,21 +360,20 @@ class Volets extends eqLogic {
 			if($this->checkJour()){
 
 				log::add('Volets', 'info', 'Exécution de '.$this->getHumanName());
-
-				$Evenement=$this->SelectAction($Azimuth);
-
+				$Saison=$this->getSaison();
+				$Evenement=$this->SelectAction($Azimuth,$Saison);
 				if($Evenement != false){
-
-					$result=$this->EvaluateCondition($Evenement,'Helioptrope');
-
-					if($result){
+					$result=$this->EvaluateCondition($Evenement,$Saison,'Helioptrope');
+				if($result){
 
 						log::add('Volets','info',$this->getHumanName().' Les conditions sont remplies');
 
 						$Action=$this->getConfiguration('action');
 
-						$this->ExecuteAction($Action[$Evenement]);
-
+						if($this->_position!=$Evenement){
+							$this->ExecuteAction($Action[$Evenement]);
+							$this->_position=$Evenement;
+						}
 					}
 
 				}
@@ -458,11 +404,8 @@ class Volets extends eqLogic {
 
 				$options = array();
 
-				if (isset($cmd['options'])) {
-
+				if (isset($cmd['options'])) 
 					$options = $cmd['options'];
-
-				}
 
 				scenarioExpression::createAndExec('action', $cmd['cmd'], $options);
 
@@ -554,11 +497,11 @@ class Volets extends eqLogic {
 
 	}
 
-	public function EvaluateCondition($evaluate,$TypeGestion){
-
+	public function EvaluateCondition($Evenement,$Saison,$TypeGestion){
 		foreach($this->getConfiguration('condition') as $condition){
-
-			if($condition['evaluation']!=$evaluate && $condition['evaluation']!='all')
+			if($condition['evaluation']!=$Evenement && $condition['evaluation']!='all')
+				continue;
+			if($condition['saison']!=$Saison && $condition['saison']!='all')
 
 				continue;
 
@@ -567,9 +510,7 @@ class Volets extends eqLogic {
 				continue;		
 
 			if (isset($condition['enable']) && $condition['enable'] == 0)
-
 				continue;
-
 			$expression = scenarioExpression::setTags($condition['expression']);
 
 			$message = __('Evaluation de la condition : [', __FILE__) . trim($expression) . '] = ';

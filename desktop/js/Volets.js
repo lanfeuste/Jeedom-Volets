@@ -70,7 +70,8 @@ function printEqLogic(_eqLogic) {
 	$('.eqLogicAttr[data-l1key=configuration][data-l2key=Droite]').val(JSON.stringify(_eqLogic.configuration.Droite));
 	$('.eqLogicAttr[data-l1key=configuration][data-l2key=Centre]').val(JSON.stringify(_eqLogic.configuration.Centre));
 	$('.eqLogicAttr[data-l1key=configuration][data-l2key=Gauche]').val(JSON.stringify(_eqLogic.configuration.Gauche));
-	TraceMapZone(_eqLogic);
+	if (typeof(_eqLogic.configuration.heliotrope) !== 'undefined' && _eqLogic.configuration.heliotrope!='') 
+		TraceMapZone(_eqLogic);
 	if (typeof(_eqLogic.configuration.condition) !== 'undefined') {
 		for(var index in _eqLogic.configuration.condition) { 
 			if( (typeof _eqLogic.configuration.condition[index] === "object") && (_eqLogic.configuration.condition[index] !== null) )
@@ -250,13 +251,20 @@ function addCondition(_condition, _name, _el) {
 					.text('{{Jour}}'))
 			       .append($('<option value="Night">')
 					.text('{{Nuit}}')))
-			.append($('<select class="expressionAttr form-control input-sm cmdCondition" data-l1key="evaluation" />')
+			.append($('<select class="expressionAttr form-control input-sm cmdCondition" data-l1key="saison" />')
 			       .append($('<option value="all">')
 					.text('{{Toutes les saisons}}'))
-			       .append($('<option value="close">')
+			       .append($('<option value="été">')
 					.text('{{Eté}}'))
+			       .append($('<option value="hiver">')
+					.text('{{Hivers}}')))
+			.append($('<select class="expressionAttr form-control input-sm cmdCondition" data-l1key="evaluation" />')
+			       .append($('<option value="all">')
+					.text('{{Ouverture et Fermeture}}'))
+			       .append($('<option value="close">')
+					.text('{{Fermeture}}'))
 			       .append($('<option value="open">')
-					.text('{{Hivers}}'))))		
+					.text('{{Ouverture}}'))))		
 		/*.append($('<div class="col-sm-2">')
 			.append($('<label>')
 				.text('{{Forcer l\'execution}}'))
