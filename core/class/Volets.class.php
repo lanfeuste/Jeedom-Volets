@@ -85,6 +85,7 @@ class Volets extends eqLogic {
 			if($result){
 				$Action=$Volet->getConfiguration('action');
 				$Volet->ExecuteAction($Action['open']);
+				cache::set('Volets::Position::'.$Volet->getId(), 'open', 0);
 			}else{
 				log::add('Volets', 'info',$Volet->getHumanName().' : Replanification de l\'évaluation des conditions d\'ouverture au lever du soleil');
 				$timstamp=$Volet->CalculHeureEvent(date('Hi'),'DelaisEval');
@@ -103,6 +104,7 @@ class Volets extends eqLogic {
 			if($result){
 				$Action=$Volet->getConfiguration('action');
 				$Volet->ExecuteAction($Action['close']);
+				cache::set('Volets::Position::'.$Volet->getId(), 'close', 0);
 			}else{
 				log::add('Volets', 'info', $Volet->getHumanName().' : Replanification de l\'évaluation des conditions de fermeture au coucher du soleil');
 				$timstamp=$Volet->CalculHeureEvent(date('Hi'),'DelaisEval');
@@ -117,15 +119,20 @@ class Volets extends eqLogic {
 				$Saison=$this->getSaison();
 				$Evenement=$this->SelectAction($Azimuth,$Saison);
 				if($Evenement != false){
-					if($this->EvaluateCondition($Evenement,$Saison,'Helioptrope')){
-						log::add('Volets','info',$this->getHumanName().' :  Les conditions sont remplies');
-						$Action=$this->getConfiguration('action');
-                      	$position = cache::byKey('Volets::Position::'.$this->getId());
-						if($position->getValue('') != $Evenement){
-							log::add('Volets','info',$this->getHumanName().' : Position actuelle est '.$Evenement);
-							$this->ExecuteAction($Action[$Evenement]);
+					$conditon=$this->EvaluateCondition($Evenement,$Saison,'Helioptrope');
+					/*if(!$conditon && $Evenement =='open')
+                     				$Evenement =='close';
+					if(!$conditon && $Evenement =='close')
+                      				$Evenement =='open';*/
+						
+					if(!$conditon)
+						return;
+					$Action=$this->getConfiguration('action');
+                      			$position = cache::byKey('Volets::Position::'.$this->getId());
+					if($position->getValue('') != $Evenement){
+						log::add('Volets','info',$this->getHumanName().' : Position actuelle est '.$Evenement);
+						$this->ExecuteAction($Action[$Evenement]);
 			      			cache::set('Volets::Position::'.$this->getId(), $Evenement, 0);
-						}
 					}
 				}
 				return;
@@ -309,6 +316,7 @@ class Volets extends eqLogic {
 				return false;
 			}
 		}
+		log::add('Volets','info',$this->getHumanName().' :  Les conditions sont remplies');
 		return true;
 	}
 	public function getAngle($latitudeOrigine,$longitudeOrigne, $latitudeDest,$longitudeDest) { 
