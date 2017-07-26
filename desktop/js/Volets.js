@@ -234,39 +234,12 @@ function addCondition(_condition,_el) {
 				.append($('<input class="expressionAttr form-control input-sm cmdCondition" data-l1key="expression"/>'))
 				.append($('<span class="input-group-btn">')
 					.append($('<a class="btn btn-warning btn-sm listCmdCondition">')
-						.append($('<i class="fa fa-list-alt">'))))))
-		.append($('<td>')
-			.append($('<select class="expressionAttr form-control input-sm cmdCondition" data-l1key="TypeGestion" />')
-			       .append($('<option value="all">')
-					.text('{{Position du soleil et Jour / Nuit}}'))
-			       .append($('<option value="Helioptrope">')
-					.text('{{Position du soleil}}'))
-			       .append($('<option value="DayNight">')
-					.text('{{Jour / Nuit}}'))
-			       .append($('<option value="Day">')
-					.text('{{Jour}}'))
-			       .append($('<option value="Night">')
-					.text('{{Nuit}}')))
-			.append($('<select class="expressionAttr form-control input-sm cmdCondition" data-l1key="saison" />')
-			       .append($('<option value="all">')
-					.text('{{Toutes les saisons}}'))
-			       .append($('<option value="été">')
-					.text('{{Eté}}'))
-			       .append($('<option value="hiver">')
-					.text('{{Hivers}}')))
-			.append($('<select class="expressionAttr form-control input-sm cmdCondition" data-l1key="evaluation" />')
-			       .append($('<option value="all">')
-					.text('{{Ouverture et Fermeture}}'))
-			       .append($('<option value="close">')
-					.text('{{Fermeture}}'))
-			       .append($('<option value="open">')
-					.text('{{Ouverture}}')))
-			.append($('<select class="expressionAttr form-control input-sm cmdCondition" data-l1key="controle" />')
-			       .append($('<option value="No">')
-					.text('{{Condition normale}}'))
-			       .append($('<option value="Yes">')
-					.text('{{Condition vérifiée à l\'inverse si soleil dans fenêtre. Permet d\'ouvrir le volet l\'été et le fermer l\'hiver}}'))))	
-		.append($('<td>'));
+						.append($('<i class="fa fa-list-alt">')))))
+			.append($('<div class="col-sm-5">')
+		       		.append($('<label>')
+			       		.text('{{Inverser l\'etat si faux}}'))
+				.append($('<input type="checkbox" class="expressionAttr" data-l1key="Inverse">'))))
+		.append(addParameters());
 
         _el.append(tr);
         _el.find('tr:last').setValues(_condition, '.expressionAttr');
@@ -285,37 +258,10 @@ function addAction(_action,  _el) {
 			.append($('<span class="input-group-btn">')
 				.append($('<a class="btn btn-success btn-sm listAction" title="Sélectionner un mot-clé">')
 					.append($('<i class="fa fa-tasks">')))
-				.append($('<a class="btn btn-success btn-sm listCmdAction">')
-					.append($('<i class="fa fa-list-alt">'))))));
-	tr.append($('<td>')
+				.append($('<a class="btn btn-success btn-sm listCmdAction data-type="action"">')
+					.append($('<i class="fa fa-list-alt">')))))
 	       .append($(jeedom.cmd.displayActionOption(init(_action.cmd, ''), _action.options))));
-	tr.append($('<td>')
-		.append($('<select class="expressionAttr form-control input-sm cmdAction" data-l1key="TypeGestion" />')
-		       .append($('<option value="all">')
-				.text('{{Position du soleil et Jour / Nuit}}'))
-		       .append($('<option value="Helioptrope">')
-				.text('{{Position du soleil}}'))
-		       .append($('<option value="DayNight">')
-				.text('{{Jour / Nuit}}'))
-		       .append($('<option value="Day">')
-				.text('{{Jour}}'))
-		       .append($('<option value="Night">')
-				.text('{{Nuit}}')))
-		.append($('<select class="expressionAttr form-control input-sm cmdAction" data-l1key="saison" />')
-		       .append($('<option value="all">')
-				.text('{{Toutes les saisons}}'))
-		       .append($('<option value="été">')
-				.text('{{Eté}}'))
-		       .append($('<option value="hiver">')
-				.text('{{Hivers}}')))
-		.append($('<select class="expressionAttr form-control input-sm cmdAction" data-l1key="evaluation" />')
-		       .append($('<option value="all">')
-				.text('{{Ouverture et Fermeture}}'))
-		       .append($('<option value="close">')
-				.text('{{Fermeture}}'))
-		       .append($('<option value="open">')
-				.text('{{Ouverture}}'))));
-
+	tr.append(addParameters());
         _el.append(tr);
         _el.find('tr:last').setValues(_action, '.expressionAttr');
   
@@ -474,7 +420,7 @@ $('body').on('click','.ActionAttr[data-action=remove]', function () {
 	$(this).closest('.ActionGroup').remove();
 });
 $("body").on('click', ".listAction", function() {
-	var el = $(this).closest('td').find('.expressionAttr[data-l1key=cmd]');
+	var el = $(this).closest('.input-group').find('input');
 	jeedom.getSelectActionModal({}, function (result) {
 		el.value(result.human);
 		jeedom.cmd.displayActionOption(el.value(), '', function (html) {
@@ -483,8 +429,9 @@ $("body").on('click', ".listAction", function() {
 	});
 }); 
 $("body").on('click', ".listCmdAction", function() {
-	var el = $(this).closest('td').find('.expressionAttr[data-l1key=cmd]');
-	jeedom.cmd.getSelectModal({cmd: {type: 'action'}}, function (result) {
+	var el = $(this).closest('.input-group').find('input');
+	var type=$(this).attr('data-type');
+	jeedom.cmd.getSelectModal({cmd: {type: type}}, function (result) {
 		el.value(result.human);
 		jeedom.cmd.displayActionOption(el.value(), '', function (html) {
 			el.closest('.form-group').find('.actionOptions').html(html);
@@ -527,6 +474,32 @@ function addCmdToTable(_cmd) {
 	$('#table_cmd tbody').append(tr);
 	$('#table_cmd tbody tr:last').setValues(_cmd, '.cmdAttr');
 	jeedom.cmd.changeType($('#table_cmd tbody tr:last'), init(_cmd.subType));
+}
+function addParameters() {
+	var Parameter=$('<div>');
+	Parameter.append($('<td>')
+		 .append($('<select class="expressionAttr form-control input-sm cmdAction" data-l1key="TypeGestion" multiple>')
+			.append($('<option value="Helioptrope">')
+				.text('{{Position du soleil}}'))
+			.append($('<option value="Day">')
+				.text('{{Jour}}'))
+			.append($('<option value="Night">')
+				.text('{{Nuit}}'))
+			.append($('<option value="Presence">')
+				.text('{{Présence}}'))));
+	Parameter.append($('<td>')
+		 .append($('<select class="expressionAttr form-control input-sm cmdAction" data-l1key="saison" multiple>')
+			.append($('<option value="été">')
+				.text('{{Eté}}'))
+			.append($('<option value="hiver">')
+				.text('{{Hivers}}'))));
+	Parameter.append($('<td>')
+		 .append($('<select class="expressionAttr form-control input-sm cmdAction" data-l1key="evaluation" multiple>')
+			.append($('<option value="close">')
+				.text('{{Fermeture}}'))
+			.append($('<option value="open">')
+				.text('{{Ouverture}}'))));
+	return Parameter.children();		 		
 }
 function getAngle(Origine, Destination) { 
 	var rlongitudeOrigine = Math.radians(Origine.lng); 
