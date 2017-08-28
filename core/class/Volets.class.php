@@ -1,7 +1,7 @@
 <?php
 require_once dirname(__FILE__) . '/../../../../core/php/core.inc.php';
 class Volets extends eqLogic {
-	private $_inverseCondition=false;
+  private $_inverseCondition=false;
 	public static function deamon_info() {
 		$return = array();
 		$return['log'] = 'Volets';
@@ -10,7 +10,7 @@ class Volets extends eqLogic {
 		foreach(eqLogic::byType('Volets') as $Volet){
 			if($Volet->getIsEnable()){
 				$listener = listener::byClassAndFunction('Volets', 'pull', array('Volets_id' => $Volet->getId()));
-			if (!is_object($listener))
+				if (!is_object($listener))
 					return $return;
 				if ($Volet->getConfiguration('DayNight')){
 					$cron = cron::byClassAndFunction('Volets', 'ActionJour', array('Volets_id' => $Volet->getId()));
@@ -89,20 +89,19 @@ class Volets extends eqLogic {
 	public static function ActionJour($_option) {    
 		log::add('Volets', 'debug', 'Objet mis à jour => ' . json_encode($_option));
 		$Volet = Volets::byId($_option['Volets_id']);
-		if (is_object($Volet) && $Volet->getIsEnable()) {
+		if (is_object($Volet) && $Volet->getIsEnable() && $Volet->getCmd(null,'isArmed')->execCmd()){
 			log::add('Volets', 'info', $Volet->getHumanName().' : Exécution de la gestion du lever du soleil');
 			$Saison=$Volet->getSaison();
 			$Evenement=$Volet->checkCondition('open',$Saison,'Day');
 			if( $Evenement!= false){
 				log::add('Volets','info',$Volet->getHumanName().' : Execution des actions');
-				//$position = cache::byKey('Volets::Position::'.$Volet->getId());
-				//if($position->getValue('') != $Evenement){
+				//if($this->getPosition(); != $Evenement){
 					foreach($Volet->getConfiguration('action') as $Cmd){	
 						if (!$Volet->CheckValid($Cmd,$Evenement,$Saison,'Day'))
 							continue;
 						$Volet->ExecuteAction($Cmd);
 					}
-					cache::set('Volets::Position::'.$Volet->getId(),$Evenement, 0);
+          $this->setPosition($Evenement);
 					cache::set('Volets::Mode::'.$Volet->getId(), 'Day', 0);
 				//}
 			}else{
@@ -116,20 +115,19 @@ class Volets extends eqLogic {
 	public static function ActionNuit($_option) {
 		log::add('Volets', 'debug', 'Objet mis à jour => ' . json_encode($_option));
 		$Volet = Volets::byId($_option['Volets_id']);
-		if (is_object($Volet) && $Volet->getIsEnable()) {
+		if (is_object($Volet) && $Volet->getIsEnable() && $Volet->getCmd(null,'isArmed')->execCmd()){
 			log::add('Volets', 'info',$Volet->getHumanName().' : Exécution de la gestion du coucher du soleil ');
 			$Saison=$Volet->getSaison();
 			$Evenement=$Volet->checkCondition('close',$Saison,'Night');
 			if( $Evenement!= false){
 				log::add('Volets','info',$Volet->getHumanName().' : Execution des actions');
-				//$position = cache::byKey('Volets::Position::'.$Volet->getId());
-				//if($position->getValue('') != $Evenement){
+				//if($this->getPosition(); != $Evenement){
 					foreach($Volet->getConfiguration('action') as $Cmd){	
 						if (!$Volet->CheckValid($Cmd,$Evenement,$Saison,'Night'))
 							continue;
 						$Volet->ExecuteAction($Cmd);
 					}
-					cache::set('Volets::Position::'.$Volet->getId(), $Evenement, 0);
+        $this->setPosition($Evenement);
 					cache::set('Volets::Mode::'.$Volet->getId(), 'Night', 0);
 				//}
 			}else{
@@ -150,15 +148,14 @@ class Volets extends eqLogic {
 					$Evenement='close';
 			$Evenement=$this->checkCondition($Evenement,$Saison,'Presence');
 			if( $Evenement!= false){
-					//$position = cache::byKey('Volets::Position::'.$this->getId());
-					//if($position->getValue('') != $Evenement){
+					//if($this->getPosition(); != $Evenement){
 						log::add('Volets','info',$this->getHumanName().' : Execution des actions');
 						foreach($this->getConfiguration('action') as $Cmd){	
 							if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Presence'))
 								continue;
 							$this->ExecuteAction($Cmd);
 						}
-						cache::set('Volets::Position::'.$this->getId(), $Evenement, 0);
+            $this->setPosition($Evenement);
 						if($Evenement=='close')
 							cache::set('Volets::Mode::'.$this->getId(), 'Absent', 0);
 					//}
@@ -181,15 +178,14 @@ class Volets extends eqLogic {
 				if($Evenement != false){
 					$Evenement=$this->checkCondition($Evenement,$Saison,'Helioptrope');
 					if( $Evenement!= false){
-						$position = cache::byKey('Volets::Position::'.$this->getId());
-						if($position->getValue('') != $Evenement){
+						if($this->getPosition() != $Evenement){
 							log::add('Volets','info',$this->getHumanName().' : Execution des actions');
 							foreach($this->getConfiguration('action') as $Cmd){	
 								if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Helioptrope'))
 									continue;
 								$this->ExecuteAction($Cmd);
 							}
-							cache::set('Volets::Position::'.$this->getId(), $Evenement, 0);
+              $this->setPosition($Evenement);
 						}else
 							log::add('Volets','info',$this->getHumanName().' : Position actuelle est '.$Evenement.' les volets sont déjà dans la bonne position, je ne fait rien');
 					}
@@ -455,8 +451,8 @@ class Volets extends eqLogic {
 			}
 		}
 	}
-	public static function AddCommande($eqLogic,$Name,$_logicalId,$Type="info", $SubType='binary',$visible,$Template='') {
-		$Commande = $eqLogic->getCmd(null,$_logicalId);
+	public function AddCommande($Name,$_logicalId,$Type="info", $SubType='binary',$visible,$Template='') {
+		$Commande = $this->getCmd(null,$_logicalId);
 		if (!is_object($Commande))
 		{
 			$Commande = new VoletsCmd();
@@ -464,7 +460,7 @@ class Volets extends eqLogic {
 			$Commande->setName($Name);
 			$Commande->setIsVisible($visible);
 			$Commande->setLogicalId($_logicalId);
-			$Commande->setEqLogic_id($eqLogic->getId());
+			$Commande->setEqLogic_id($this->getId());
 			$Commande->setType($Type);
 			$Commande->setSubType($SubType);
 		}
@@ -473,29 +469,45 @@ class Volets extends eqLogic {
 		$Commande->save();
 		return $Commande;
 	}
+	public function setPosition($Evenement) {
+    if($Evenement == 'open')
+      $this->checkAndUpdateCmd('position',true);
+    else
+      $this->checkAndUpdateCmd('position',false);
+  }
+	public function getPosition() {
+    if($this->getCmd(null,'position'))
+      return 'open';
+    else
+      return 'close';
+  }
 	public function postSave() {
-		$state=self::AddCommande($this,"Position du soleil","state","info", 'binary',true,'sunInWindows');
+		$state=$this->AddCommande("Position du soleil","state","info", 'binary',true,'sunInWindows');
 		$state->event(false);
 		$state->setCollectDate(date('Y-m-d H:i:s'));
 		$state->save();
-		$isInWindows=self::AddCommande($this,"Etat mode","isInWindows","info","binary",false,'isInWindows');
-		$inWindows=self::AddCommande($this,"Mode","inWindows","action","other",true,'inWindows');
+		$isInWindows=$this->AddCommande("Etat mode","isInWindows","info","binary",false,'isInWindows');
+		$inWindows=$this->AddCommande("Mode","inWindows","action","other",true,'inWindows');
 		$inWindows->setValue($isInWindows->getId());
 		$inWindows->save();
-		$isArmed=self::AddCommande($this,"Etat activation","isArmed","info","binary",false,'lock');
+		$isArmed=$this->AddCommande("Etat activation","isArmed","info","binary",false,'lock');
 		$isArmed->event(true);
 		$isArmed->setCollectDate(date('Y-m-d H:i:s'));
 		$isArmed->save();
-		$Armed=self::AddCommande($this,"Activer","armed","action","other",true,'lock');
+		$Armed=$this->AddCommande("Activer","armed","action","other",true,'lock');
 		$Armed->setValue($isArmed->getId());
 		$Armed->setConfiguration('state', '1');
 		$Armed->setConfiguration('armed', '1');
 		$Armed->save();
-		$Released=self::AddCommande($this,"Désactiver","released","action","other",true,'lock');
+		$Released=$this->AddCommande("Désactiver","released","action","other",true,'lock');
 		$Released->setValue($isArmed->getId());
 		$Released->save();
 		$Released->setConfiguration('state', '0');
 		$Released->setConfiguration('armed', '1');
+		$Position=$this->AddCommande("Etat du volet","position","info","binary",false);
+		$VoletState=$this->AddCommande("Position du volet","VoletState","action","other",true);
+		$VoletState->setValue($Position->getId());
+		$VoletState->save();
 		self::deamon_stop();
 	}	
 	public function postRemove() {
@@ -515,6 +527,12 @@ class VoletsCmd extends cmd {
 		$Listener=cmd::byId(str_replace('#','',$this->getValue()));
 		if (is_object($Listener)) {	
 			switch($this->getLogicalId()){
+        case 'VoletState':
+          if($this->getEqLogic()->getCmd(null,'position')->execCmd())
+            $this->getEqLogic()->checkAndUpdateCmd('position',false);
+          else
+            $this->getEqLogic()->checkAndUpdateCmd('position',true);
+        break;
 				case 'armed':
 					$Listener->event(true);
 				break;
