@@ -57,21 +57,23 @@ class Volets extends eqLogic {
 			if(is_object($Event)){
 				switch($Event->getlogicalId()){
 					case 'azimuth360':
+						log::add('Volets','info',$Volet->getHumanName().' : Mise a jours de la position du soleil');	
 						$Volet->ActionAzimute($_option['value']);
 					break;
-					case 'sunrise':
-						log::add('Volets', 'info',$Volet->getHumanName().' : Replanification de l\'ouverture au lever du soleil');	
+					case $Volet->getConfiguration('TypeDay'):
+						log::add('Volets','info',$Volet->getHumanName().' : Replanification de l\'ouverture au lever du soleil');	
 						$timstamp=$Volet->CalculHeureEvent($_option['value'],'DelaisDay');
 						$Schedule=date("i",$timstamp) . ' ' . date("H",$timstamp) . ' * * * *';
 						$cron = $Volet->CreateCron($Schedule, 'ActionJour');
 					break;
-					case 'sunset':	
-						log::add('Volets', 'info',$Volet->getHumanName().' : Replanification de la fermeture au coucher du soleil');	
+					case $Volet->getConfiguration('TypeDay'):
+						log::add('Volets','info',$Volet->getHumanName().' : Replanification de la fermeture au coucher du soleil');	
 						$timstamp=$Volet->CalculHeureEvent($_option['value'],'DelaisNight');
 						$Schedule=date("i",$timstamp) . ' ' . date("H",$timstamp) . ' * * * *';
 						$cron = $Volet->CreateCron($Schedule, 'ActionNuit');
 					break;
 					default:
+						log::add('Volets','info',$Volet->getHumanName().' : Mise a jours de la présence');	
 						$Volet->ActionPresent($_option['value']);
 					break;
 				}
@@ -81,7 +83,7 @@ class Volets extends eqLogic {
 	
 	public function AutorisationAction($Evenement) {   
 		if ($this->getIsEnable() && $this->getCmd(null,'isArmed')->execCmd()){
-			$Mode = cache::byKey('Volets::Mode::'.$this->getId())->getValue('Helioptrope');
+			$Mode = cache::byKey('Volets::Mode::'.$this->getId())->getValue('Azimuth');
 			switch($Evenement){
 				case 'Day':
 				case 'Night':
@@ -100,7 +102,7 @@ class Volets extends eqLogic {
 						return true;
 				break;
 				case 'Azimuth':
-					if ($this->getConfiguration('Helioptrope')
+					if ($this->getConfiguration('Azimuth')
 					    && $Mode != "Night" 
 					    && $Mode != "Absent" 
 					    && $Mode != "Meteo")
@@ -114,11 +116,12 @@ class Volets extends eqLogic {
 		$Volet = Volets::byId($_option['Volets_id']);
 		if (is_object($Volet) && $Volet->AutorisationAction('Day')){
 			log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Jours] : Exécution de la gestion du lever du soleil');
+			$Mode = cache::byKey('Volets::Mode::'.$Volet->getId())->getValue('Azimuth');
 			$Saison=$Volet->getSaison();
 			$Evenement=$Volet->checkCondition('open',$Saison,'Day');
 			if( $Evenement!= false){
 				log::add('Volets','info',$Volet->getHumanName().'[Gestion Jours] : Execution des actions');
-				//if($Volet->getPosition() != $Evenement){
+				if($Volet->getPosition() != $Evenement || $Mode != 'Day'){
 					foreach($Volet->getConfiguration('action') as $Cmd){	
 						if (!$Volet->CheckValid($Cmd,$Evenement,$Saison,'Day'))
 							continue;
@@ -126,7 +129,7 @@ class Volets extends eqLogic {
 					}
           				$Volet->setPosition($Evenement);
 					cache::set('Volets::Mode::'.$Volet->getId(), 'Day', 0);
-				//}
+				}
 			}else{
 				log::add('Volets', 'info',$Volet->getHumanName().'[Gestion Jours] : Replanification de l\'évaluation des conditions d\'ouverture au lever du soleil');
 				$timstamp=$Volet->CalculHeureEvent(date('Hi'),'DelaisEval');
@@ -138,12 +141,13 @@ class Volets extends eqLogic {
 	public static function ActionNuit($_option) {
 		$Volet = Volets::byId($_option['Volets_id']);
 		if (is_object($Volet) && $Volet->AutorisationAction('Night')){
+			$Mode = cache::byKey('Volets::Mode::'.$Volet->getId())->getValue('Azimuth');
 			log::add('Volets', 'info',$Volet->getHumanName().'[Gestion Nuit] : Exécution de la gestion du coucher du soleil ');
 			$Saison=$Volet->getSaison();
 			$Evenement=$Volet->checkCondition('close',$Saison,'Night');
 			if( $Evenement!= false){
 				log::add('Volets','info',$Volet->getHumanName().'[Gestion Nuit] : Execution des actions');
-				//if($Volet->getPosition() != $Evenement){
+				if($Volet->getPosition() != $Evenement || $Mode != 'Night'){
 					foreach($Volet->getConfiguration('action') as $Cmd){	
 						if (!$Volet->CheckValid($Cmd,$Evenement,$Saison,'Night'))
 							continue;
@@ -151,7 +155,7 @@ class Volets extends eqLogic {
 					}
      					$Volet->setPosition($Evenement);
 					cache::set('Volets::Mode::'.$Volet->getId(), 'Night', 0);
-				//}
+				}
 			}else{
 				log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Nuit] : Replanification de l\'évaluation des conditions de fermeture au coucher du soleil');
 				$timstamp=$Volet->CalculHeureEvent(date('Hi'),'DelaisEval');
@@ -163,6 +167,7 @@ class Volets extends eqLogic {
 	public static function ActionMeteo($_option) {
 		$Volet = Volets::byId($_option['Volets_id']);
 		if (is_object($Volet) && $Volet->AutorisationAction('Meteo')){
+			$Mode = cache::byKey('Volets::Mode::'.$Volet->getId())->getValue('Azimuth');
 			log::add('Volets', 'info',$Volet->getHumanName().'[Gestion Meteo] : Exécution de la gestion météo');
 			$Saison=$Volet->getSaison();
 			$Evenement=$Volet->checkCondition('close',$Saison,'Meteo');   		
@@ -171,17 +176,16 @@ class Volets extends eqLogic {
 					break;
 			}
 			if($Evenement== false){
-				$Mode = cache::byKey('Volets::Mode::'.$Volet->getId())->getValue('Helioptrope');
 				if($Mode=='Meteo'){
 					cache::set('Volets::Mode::'.$Volet->getId(), 'Day', 0);
+					$Mode='Day';
 					$Evenement=$Volet->checkCondition('open',$Saison,'Meteo'); 
+					return;
 				}
 			}
-			else
-				cache::set('Volets::Mode::'.$Volet->getId(), 'Meteo', 0);
 			if($Evenement!= false){
 				log::add('Volets','info',$Volet->getHumanName().'[Gestion Meteo] : Exécution des actions');
-				if($Volet->getPosition() != $Evenement){
+				if($Volet->getPosition() != $Evenement || $Mode != 'Meteo'){
 					foreach($Volet->getConfiguration('action') as $Cmd){	
 						if (!$Volet->CheckValid($Cmd,$Evenement,$Saison,'Meteo'))
 							continue;
@@ -189,10 +193,12 @@ class Volets extends eqLogic {
 					}
 					$Volet->setPosition($Evenement);
 				}
+				cache::set('Volets::Mode::'.$Volet->getId(), 'Meteo', 0);
 			}
 		}
 	}
   	public function ActionPresent($Etat) {
+		$Mode = cache::byKey('Volets::Mode::'.$this->getId())->getValue('Azimuth');
 		if ($this->AutorisationAction('Present')){
 			if($this->checkJour()){
 				$Saison=$this->getSaison();
@@ -202,7 +208,7 @@ class Volets extends eqLogic {
 					$Evenement='close';
 				$Evenement=$this->checkCondition($Evenement,$Saison,'Presence');
 				if( $Evenement!= false){
-					//if($this->getPosition(); != $Evenement){
+					if($this->getPosition() != $Evenement || $Mode != 'Absent'){
 						log::add('Volets','info',$this->getHumanName().'[Gestion Presence] : Exécution des actions');
 						foreach($this->getConfiguration('action') as $Cmd){	
 							if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Presence'))
@@ -210,7 +216,7 @@ class Volets extends eqLogic {
 							$this->ExecuteAction($Cmd,'Presence');
 						}
           					$this->setPosition($Evenement);
-					//}
+					}
 				}				
 				if($Evenement == 'close')
 					cache::set('Volets::Mode::'.$Volet->getId(), 'Absent', 0);
@@ -220,32 +226,34 @@ class Volets extends eqLogic {
 		}
 	}
 	public function ActionAzimute($Azimuth) {
+		$Mode = cache::byKey('Volets::Mode::'.$this->getId())->getValue('Azimuth');
 		if ($this->AutorisationAction('Azimuth')){
 			if($this->checkJour()){
 				$Saison=$this->getSaison();
 				$Evenement=$this->SelectAction($Azimuth,$Saison);
 				if($Evenement != false){
-					$Evenement=$this->checkCondition($Evenement,$Saison,'Helioptrope');
+					$Evenement=$this->checkCondition($Evenement,$Saison,'Azimuth');
 					if( $Evenement!= false){
-						if($this->getPosition() != $Evenement){
-							log::add('Volets','info',$this->getHumanName().'[Gestion Helioptrope] : Exécution des actions');
+						if($this->getPosition() != $Evenement || $Mode != 'Azimuth'){
+							log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : Exécution des actions');
 							foreach($this->getConfiguration('action') as $Cmd){	
-								if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Helioptrope'))
+								if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Azimuth'))
 									continue;
 								$this->ExecuteAction($Cmd,'Azimuth');
 							}
               						$this->setPosition($Evenement);
 						}else
-							log::add('Volets','info',$this->getHumanName().'[Gestion Helioptrope] : Position actuelle est '.$Evenement.' les volets sont déjà dans la bonne position, je ne fait rien');
+							log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : Position actuelle est '.$Evenement.' les volets sont déjà dans la bonne position, je ne fait rien');
 					}
 				}
+				cache::set('Volets::Mode::'.$this->getId(), 'Azimuth', 0);
 			}
 		}
 	}
    	public function checkJour() {
 		$heliotrope=eqlogic::byId($this->getConfiguration('heliotrope'));
 		if(is_object($heliotrope)){	
-			$sunrise=$heliotrope->getCmd(null,'sunrise');
+			$sunrise=$heliotrope->getCmd(null,$this->getConfiguration('TypeDay'));
 			if(is_object($sunrise)){
 				$value=$sunrise->execCmd();
 				$Jours= new DateTime('@' .$this->CalculHeureEvent($value,'DelaisDay'));
@@ -254,7 +262,7 @@ class Volets extends eqLogic {
 				log::add('Volets','debug',$this->getHumanName().' : L\'objet "sunrise" n\'a pas été trouvé');
 				return false;
 			}
-			$sunset=$heliotrope->getCmd(null,'sunset');
+			$sunset=$heliotrope->getCmd(null,$this->getConfiguration('TypeNight'));
 			if(is_object($sunset)){
 				$value=$sunset->execCmd();
 				$Nuit= new DateTime('@' .$this->CalculHeureEvent($value,'DelaisNight'));
@@ -291,7 +299,7 @@ class Volets extends eqLogic {
 				$this->setConfiguration('AngleGauche',$AngleCntGau);
 				$this->save();
 			}else{
-				log::add('Volets','debug',$this->getHumanName().'[Gestion Helioptrope] : Les coordonnées GPS de l\'angle d\'exposition au soleil de votre fenêtre sont mal configurées');
+				log::add('Volets','debug',$this->getHumanName().'[Gestion Azimuth] : Les coordonnées GPS de l\'angle d\'exposition au soleil de votre fenêtre sont mal configurées');
 				return false;	
 			}
 		}
@@ -305,7 +313,7 @@ class Volets extends eqLogic {
 			if(0 <= $Azimut && $Azimuth <= $AngleCntGau)
 				$result= true;
 		}		
-		log::add('Volets','info',$this->getHumanName().'[Gestion Helioptrope] : L\'ensoleillement est comprise entre : '.$AngleCntDrt.'°  < '.$Azimuth.'°  <'.$AngleCntGau.'° => '.$result);
+		log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : L\'azimute ' . $Azimuth . '° est compris entre : '.$AngleCntDrt.'°  et '.$AngleCntGau.'° => '.$result);
 		return $result;
 	}	
 	public function getSaison() {
@@ -328,14 +336,14 @@ class Volets extends eqLogic {
 			return false;
 		if($this->CheckAngle($Azimuth)){
 			$StateCmd->event(true);
-			log::add('Volets','info',$this->getHumanName().'[Gestion Helioptrope] : Le soleil est dans la fenêtre');
+			log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : Le soleil est dans la fenêtre');
 			if($saison =='hiver')
 				$Action='open';
 			else
 				$Action='close';
 		}else{
 			$StateCmd->event(false);
-			log::add('Volets','info',$this->getHumanName().'[Gestion Helioptrope] : Le soleil n\'est pas dans la fenêtre');
+			log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : Le soleil n\'est pas dans la fenêtre');
 			if($saison == 'été')
 				$Action='open';
 			else
@@ -465,10 +473,10 @@ class Volets extends eqLogic {
 		if($this->getIsEnable()){
 			$heliotrope=eqlogic::byId($this->getConfiguration('heliotrope'));
 			if(is_object($heliotrope)){
-				$sunrise=$heliotrope->getCmd(null,'sunrise');
+				$sunrise=$heliotrope->getCmd(null,$this->getConfiguration('TypeDay'));
 				if(!is_object($sunrise))
 					return false;
-				$sunset=$heliotrope->getCmd(null,'sunset');
+				$sunset=$heliotrope->getCmd(null,$this->getConfiguration('TypeNight'));
 				if(!is_object($sunset))
 					return false;
 				$listener = listener::byClassAndFunction('Volets', 'pull', array('Volets_id' => $this->getId()));
@@ -478,19 +486,17 @@ class Volets extends eqLogic {
 				$listener->setFunction('pull');
 				$listener->setOption(array('Volets_id' => $this->getId()));
 				$listener->emptyEvent();
-				if ($this->getConfiguration('Helioptrope'))
+				if ($this->getConfiguration('Azimuth'))
 					$listener->addEvent($heliotrope->getCmd(null,'azimuth360')->getId());
 				if ($this->getConfiguration('Present'))
 					$listener->addEvent($this->getConfiguration('cmdPresent'));
 				if ($this->getConfiguration('DayNight')){
 					$listener->addEvent($sunrise->getId());
 					$listener->addEvent($sunset->getId());
-					$value=$sunrise->execCmd();
-					$timstamp=$this->CalculHeureEvent($value,'DelaisDay');
+					$timstamp=$this->CalculHeureEvent($sunrise->execCmd(),'DelaisDay');
 					$Schedule=date("i",$timstamp) . ' ' . date("H",$timstamp) . ' * * * *';
 					$cron = $this->CreateCron($Schedule, 'ActionJour', array('Volets_id' => intval($this->getId())));
-					$value=$sunset->execCmd();
-					$timstamp=$this->CalculHeureEvent($value,'DelaisNight');
+					$timstamp=$this->CalculHeureEvent($sunset->execCmd(),'DelaisNight');
 					$Schedule=date("i",$timstamp) . ' ' . date("H",$timstamp) . ' * * * *';
 					$cron = $this->CreateCron($Schedule, 'ActionNuit', array('Volets_id' => intval($this->getId())));
 				}
