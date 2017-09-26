@@ -1,4 +1,14 @@
 var map;
+var layers = [];
+var i, ii;
+var styles = [
+	'Road',
+	'RoadOnDemand',
+	'Aerial',
+	'AerialWithLabels',
+	'collinsBart',
+	'ordnanceSurvey'
+];
 var DroitLatLng=new Object();
 var CentreLatLng=new Object();
 var GaucheLatLng=new Object();
@@ -19,6 +29,12 @@ $('body').on('change','.eqLogicAttr[data-l1key=configuration][data-l2key=Present
 });
 $('body').on('change','.eqLogicAttr[data-l1key=configuration][data-l2key=isRandom]',function(){
 
+});
+$('body').on('change','#layer-select',function(){
+        var style = $(this).val();
+        for (var i = 0, ii = layers.length; i < ii; ++i) {
+          layers[i].setVisible(styles[i] === style);
+        }
 });
 $('body').on('change','.eqLogicAttr[data-l1key=configuration][data-l2key=heliotrope]',function(){
 	$('#MyMap').html('');
@@ -41,18 +57,45 @@ $('body').on('change','.eqLogicAttr[data-l1key=configuration][data-l2key=heliotr
 				var center=data.result.geoloc.split(",");
 				CentreLatLng.lat=parseFloat(center[0]);
 				CentreLatLng.lng=parseFloat(center[1]);
+				var view = new ol.View({
+					center: ol.proj.fromLonLat([CentreLatLng.lng,CentreLatLng.lat]),
+					zoom: 10
+    				});
+				for (i = 0, ii = styles.length; i < ii; ++i) {
+					layers.push(new ol.layer.Tile({
+						visible: false,
+						preload: Infinity,
+						source: new ol.source.BingMaps({
+							key: 'AuT3N8ChmgGQQmlcsgZXgyrP663Pf9Jsv5lKdoIa_65s2MGOME24ZLYSAf6T4vfx',
+							imagerySet: styles[i]
+						})
+					}));
+				}
 				map = new ol.Map({
-					view: new ol.View({
-						center: ol.proj.fromLonLat([CentreLatLng.lng,CentreLatLng.lat]),
-						zoom: 10
-					}),
+					layers: layers,
+					loadTilesWhileInteracting: true,
+					target: 'MyMap',
+					view: view
+				});
+          			layers[3].setVisible(styles[3]);
+				/*map =new ol.Map({
+					view: view,
 					layers: [
 						new ol.layer.Tile({
 							source: new ol.source.OSM()
 						})
 					],
 					target: 'MyMap'
-				});
+				});*/
+				/*var geolocation = new ol.Geolocation({projection: view.getProjection()});
+        			geolocation.setTracking(true);
+				geolocation.on('change', function() {
+					//geolocation.getAccuracy() + ' [m]';
+					alert(geolocation.getAltitude() + ' [m]');
+					//geolocation.getAltitudeAccuracy() + ' [m]';
+					//geolocation.getHeading() + ' [rad]';
+					//geolocation.getSpeed() + ' [m/s]';
+				});*/
 			}
 		}
 	});
