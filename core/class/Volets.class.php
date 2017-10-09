@@ -57,7 +57,7 @@ class Volets extends eqLogic {
 			if(is_object($Event)){
 				switch($Event->getlogicalId()){
 					case 'azimuth360':
-						log::add('Volets','info',$Volet->getHumanName().' : Mise a jours de la position du soleil');	
+						log::add('Volets','info',$Volet->getHumanName().' : Mise à jour de la position du soleil');	
 						$Volet->ActionAzimute($_option['value']);
 					break;
 					case $Volet->getConfiguration('TypeDay'):
@@ -73,7 +73,7 @@ class Volets extends eqLogic {
 						$cron = $Volet->CreateCron($Schedule, 'ActionNuit');
 					break;
 					default:
-						log::add('Volets','info',$Volet->getHumanName().' : Mise a jours de la présence');	
+						log::add('Volets','info',$Volet->getHumanName().' : Mise à jour de la présence');	
 						$Volet->ActionPresent($_option['value']);
 					break;
 				}
@@ -86,8 +86,6 @@ class Volets extends eqLogic {
 			$Mode = $this->getCmd(null,'gestion')->execCmd();
 			switch($Evenement){
 				case 'Day':
-					if ($Mode == "Absent")
-						return false;
 				case 'Night':
 					if ($this->getConfiguration('DayNight'))
 						return true;
@@ -100,13 +98,13 @@ class Volets extends eqLogic {
 				case 'Meteo':					
 					if ($this->getConfiguration('Meteo')
 					    && $Mode != "Night" 
-					    && $Mode != "Absent")
+					    && $Mode != "Present")
 						return true;
 				break;
 				case 'Azimuth':
 					if ($this->getConfiguration('Azimuth')
 					    && $Mode != "Night" 
-					    && $Mode != "Absent" 
+					    && $Mode != "Present" 
 					    && $Mode != "Meteo")
 						return true;
 				break;
@@ -117,29 +115,31 @@ class Volets extends eqLogic {
 	public static function ActionJour($_option) {    
 		$Volet = Volets::byId($_option['Volets_id']);
 		if (is_object($Volet) && $Volet->AutorisationAction('Day')){	
-			log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Jours] : Exécution de la gestion du lever du soleil');
+			log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Day] : Exécution de la gestion du lever du soleil');
 			$Saison=$Volet->getSaison();
 			$Evenement=$Volet->checkCondition('open',$Saison,'Day');
 			if( $Evenement!= false){
 				if($Volet->getPosition() != $Evenement || $Volet->getCmd(null,'gestion')->execCmd() != 'Day'){
 					$Volet->checkAndUpdateCmd('gestion','Day');
 					if ($Volet->getConfiguration('Present')){	
+						log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Day] : Vérification de la présence');
 						$Commande=cmd::byId(str_replace('#','',$Volet->getConfiguration('cmdPresent')));
 						if(is_object($Commande) && $Commande->execCmd() == false){
-							$Volet->ActionPresent($Commande->execCmd());
-							retrun;
+							log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Day] : Il n\'y a personne nous exécutons la gestion de présence');
+							$Volet->ActionPresent();
+							return;
 						}
 					}
-					log::add('Volets','info',$Volet->getHumanName().'[Gestion Jours] : Execution des actions');
+					log::add('Volets','info',$Volet->getHumanName().'[Gestion Day] : Execution des actions');
 					foreach($Volet->getConfiguration('action') as $Cmd){	
 						if (!$Volet->CheckValid($Cmd,$Evenement,$Saison,'Day'))
 							continue;
-						$Volet->ExecuteAction($Cmd, 'Jour');
+						$Volet->ExecuteAction($Cmd, 'Day');
 					}
           				$Volet->setPosition($Evenement);
 				}
 			}else{
-				log::add('Volets', 'info',$Volet->getHumanName().'[Gestion Jours] : Replanification de l\'évaluation des conditions d\'ouverture au lever du soleil');
+				log::add('Volets', 'info',$Volet->getHumanName().'[Gestion Day] : Replanification de l\'évaluation des conditions d\'ouverture au lever du soleil');
 				$timstamp=$Volet->CalculHeureEvent(date('Hi'),'DelaisEval');
 				$Schedule=date("i",$timstamp) . ' ' . date("H",$timstamp) . ' * * * *';
 				$cron = $Volet->CreateCron($Schedule, 'ActionJour', array('Volets_id' => intval($Volet->getId())));
@@ -149,22 +149,22 @@ class Volets extends eqLogic {
 	public static function ActionNuit($_option) {
 		$Volet = Volets::byId($_option['Volets_id']);
 		if (is_object($Volet) && $Volet->AutorisationAction('Night')){
-			log::add('Volets', 'info',$Volet->getHumanName().'[Gestion Nuit] : Exécution de la gestion du coucher du soleil ');
+			log::add('Volets', 'info',$Volet->getHumanName().'[Gestion Night] : Exécution de la gestion du coucher du soleil ');
 			$Saison=$Volet->getSaison();
 			$Evenement=$Volet->checkCondition('close',$Saison,'Night');
 			if( $Evenement!= false){
 				if($Volet->getPosition() != $Evenement || $Volet->getCmd(null,'gestion')->execCmd() != 'Night'){
-					log::add('Volets','info',$Volet->getHumanName().'[Gestion Nuit] : Execution des actions');
+					log::add('Volets','info',$Volet->getHumanName().'[Gestion Night] : Exécution des actions');
 					foreach($Volet->getConfiguration('action') as $Cmd){	
 						if (!$Volet->CheckValid($Cmd,$Evenement,$Saison,'Night'))
 							continue;
-						$Volet->ExecuteAction($Cmd, 'Nuit');
+						$Volet->ExecuteAction($Cmd, 'Night');
 					}
      					$Volet->setPosition($Evenement);
 					$Volet->checkAndUpdateCmd('gestion','Night');
 				}
 			}else{
-				log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Nuit] : Replanification de l\'évaluation des conditions de fermeture au coucher du soleil');
+				log::add('Volets', 'info', $Volet->getHumanName().'[Gestion Night] : Replanification de l\'évaluation des conditions de fermeture au coucher du soleil');
 				$timstamp=$Volet->CalculHeureEvent(date('Hi'),'DelaisEval');
 				$Schedule=date("i",$timstamp) . ' ' . date("H",$timstamp) . ' * * * *';
 				$cron = $Volet->CreateCron($Schedule, 'ActionNuit', array('Volets_id' => intval($Volet->getId())));
@@ -202,7 +202,7 @@ class Volets extends eqLogic {
 			}
 		}
 	}
-  	public function ActionPresent($Etat) {
+  	public function ActionPresent($Etat=false) {
 		if ($this->AutorisationAction('Present')){
 			if($this->checkJour()){
 				$Saison=$this->getSaison();
@@ -212,7 +212,7 @@ class Volets extends eqLogic {
 					$Evenement='close';
 				$Evenement=$this->checkCondition($Evenement,$Saison,'Presence');
 				if( $Evenement!= false){
-					if($this->getPosition() != $Evenement || $this->getCmd(null,'gestion')->execCmd() != 'Absent'){
+					if($this->getPosition() != $Evenement || $this->getCmd(null,'gestion')->execCmd() != 'Present'){
 						log::add('Volets','info',$this->getHumanName().'[Gestion Presence] : Exécution des actions');
 						foreach($this->getConfiguration('action') as $Cmd){	
 							if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Presence'))
@@ -223,7 +223,7 @@ class Volets extends eqLogic {
 					}
 				}				
 				if($Evenement == 'close')
-					$this->checkAndUpdateCmd('gestion','Absent');
+					$this->checkAndUpdateCmd('gestion','Present');
 				else
 					$this->checkAndUpdateCmd('gestion','Day');
 			}
@@ -316,7 +316,7 @@ class Volets extends eqLogic {
 			if(0 <= $Azimut && $Azimuth <= $AngleCntGau)
 				$result= true;
 		}		
-		log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : L\'azimute ' . $Azimuth . '° est compris entre : '.$AngleCntDrt.'°  et '.$AngleCntGau.'° => '.$this->boolToText($result));
+		log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : L\'azimuth ' . $Azimuth . '° est compris entre : '.$AngleCntDrt.'°  et '.$AngleCntGau.'° => '.$this->boolToText($result));
 		return $result;
 	}	
 	public function getSaison() {
@@ -553,6 +553,18 @@ class Volets extends eqLogic {
 	}
 	public function getPosition() {
 		return $this->getCmd(null,'position')->execCmd();
+	}
+	public function preSave() {
+		if($this->getConfiguration('heliotrope') == "")
+			throw new Exception(__('Impossible d\'enregister, la configuration de l\'equipement heliotrope n\'existe pas', __FILE__));
+		$heliotrope=eqlogic::byId($this->getConfiguration('heliotrope'));
+		if(is_object($heliotrope)){	
+			if($heliotrope->getConfiguration('geoloc') == "")
+				throw new Exception(__('Impossible d\'enregister, la configuration  heliotrope n\'est pas correcte', __FILE__));
+			$geoloc = geotravCmd::byEqLogicIdAndLogicalId($heliotrope->getConfiguration('geoloc'),'location:coordinate');
+			if(is_object($geoloc) && $geoloc->execCmd()='')	
+				throw new Exception(__('Impossible d\'enregister, la configuration de  "Localisation et trajet" (geotrav) n\'est pas correcte', __FILE__));
+		}
 	}
 	public function postSave() {
 		$this->AddCommande("Gestion Active","gestion","info", 'string',true);
