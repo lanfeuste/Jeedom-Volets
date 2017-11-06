@@ -278,18 +278,22 @@ class Volets extends eqLogic {
 			if($Evenement != false){
 				$Evenement=$this->checkCondition($Evenement,$Saison,'Azimuth');
 				if( $Evenement!= false){
-					$Hauteur=$this->checkAltitude();
-					if($this->getPosition() != $Evenement || $this->getCmd(null,'gestion')->execCmd() != 'Azimuth' /*|| $this->getCmd(null,'hauteur')->execCmd() != $Hauteur*/){
-						$this->checkAndUpdateCmd('hauteur',$Hauteur);
-						log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : Exécution des actions');
-						foreach($this->getConfiguration('action') as $Cmd){	
-							if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Azimuth'))
-								continue;
+					if($Evenement == 'open')
+						$Hauteur=100;
+					else		
+						$Hauteur=$this->checkAltitude();
+					$this->checkAndUpdateCmd('hauteur',$Hauteur);
+					foreach($this->getConfiguration('action') as $Cmd){	
+						if (!$this->CheckValid($Cmd,$Evenement,$Saison,'Azimuth'))
+							continue;
+						if($this->getPosition() != $Evenement 
+						   || $this->getCmd(null,'gestion')->execCmd() != 'Azimuth' 
+						   || ($this->getCmd(null,'hauteur')->execCmd() != $Hauteur && array_search('#Hauteur#', $cmd['options'])!== false)){
 							$this->ExecuteAction($Cmd,'Azimuth',$Hauteur);
 							$this->setPosition($Evenement);
-						}
-					}else
-						log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : Position actuelle est '.$Evenement.' les volets sont déjà dans la bonne position, je ne fait rien');
+						}else
+							log::add('Volets','info',$this->getHumanName().'[Gestion Azimuth] : Position actuelle est '.$Evenement.' les volets sont déjà dans la bonne position, je ne fait rien');
+					}
 					$this->checkAndUpdateCmd('gestion','Azimuth');
 				}
 			}
@@ -384,7 +388,9 @@ class Volets extends eqLogic {
 		$Commande=cmd::byId(str_replace('#','',$cmd['cmd']));
 		if(is_object($Commande)){
 			log::add('Volets','debug',$this->getHumanName().'[Gestion '.$TypeGestion.'] : Exécution de '.$Commande->getHumanName());
-			$Commande->event(str_replace('#Hauteur#',$Hauteur,$cmd['options']));
+			$key = array_search('#Hauteur#', $cmd['options']);
+			array_replace($cmd['options'], array($key => $Hauteur));
+			$Commande->event($cmd['options']);
 		}
 	}
 	public function CalculHeureEvent($HeureStart, $delais) {
@@ -518,7 +524,6 @@ class Volets extends eqLogic {
 			} else {
 			    $zenith = $heliotrope->getConfiguration('zenith', '');
 			}
-			log::add('Volets','info',$this->getHumanName().'[Gestion Altitude] : L\'altitude du zenith est a '. $zenith.'°');
 			$Hauteur=round($Altitude->execCmd()*100/$zenith);
 			log::add('Volets','info',$this->getHumanName().'[Gestion Altitude] : L\'altitude actuel est a '.$Hauteur.'% par rapport au zenith');
 			return $Hauteur;
